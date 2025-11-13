@@ -13,7 +13,7 @@ from flask_monitoringdashboard.core.profiler import (
     start_profiler_and_outlier_thread,
 )
 from flask_monitoringdashboard.core.rules import get_rules
-from flask_monitoringdashboard.database import session_scope
+from flask_monitoringdashboard.database import DatabaseConnectionWrapper
 from flask_monitoringdashboard.database.endpoint import get_endpoint_by_name
 
 
@@ -23,7 +23,7 @@ def init_measurement():
     This function is used in the config-method in __init__ of this folder
     It adds wrappers to the endpoints for tracking their performance and last access times.
     """
-    with session_scope() as session:
+    with DatabaseConnectionWrapper().database_connection.session_scope() as session:
         for rule in get_rules():
             endpoint = get_endpoint_by_name(session, rule.endpoint)
             add_decorator(endpoint)
@@ -110,7 +110,11 @@ def evaluate(route_handler, args, kwargs):
         return result, status_code, None
 
     except Exception as e:
-        return None, 500, e
+        try:
+            status_code = e.code
+        except AttributeError:
+            status_code = 500
+        return None, status_code, e
 
 
 def add_wrapper1(endpoint, fun):
